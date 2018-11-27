@@ -62,14 +62,14 @@ pub struct Event {
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct Device {
-    id: String,
-    name: String,
+    pub id: String,
+    pub name: String,
     #[serde(rename = "type")]
-    type_name: Option<String>,
-    description: String,
-    properties: HashMap<String, Property>,
-    actions: HashMap<String, Action>,
-    events: HashMap<String, Event>,
+    pub type_name: Option<String>,
+    pub description: String,
+    pub properties: HashMap<String, Property>,
+    pub actions: HashMap<String, Action>,
+    pub events: HashMap<String, Event>,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -92,7 +92,7 @@ pub enum IncomingMessage {
     },
 }
 
-fn main() {
+pub fn manage_plugins() {
     let mut plugins = HashSet::new();
     let mut socket = Socket::new(Protocol::Rep).expect("Failed to open socket");
     let mut endpoint = socket

@@ -4,13 +4,19 @@ extern crate serde_derive;
 mod plugin;
 mod users;
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap};
 use std::sync::{Arc, RwLock};
+use std::thread;
 
-use actix_web::{dev, fs, middleware, server, ws, App, HttpRequest, HttpResponse, Result};
+use actix_web::{
+    dev, fs, http::Method, middleware, server, ws, App, FromRequest, HttpRequest, HttpResponse,
+    Json, Path, Result,
+};
 
 use crate::users::UserService;
 use actix::*;
+
+use self::plugin::Device;
 
 struct UserCountHandler(UserService);
 
@@ -27,8 +33,29 @@ impl<S> dev::Handler<S> for UserCountHandler {
     }
 }
 
-fn ping(req: &HttpRequest) -> Result<HttpResponse> {
+fn ping<S>(req: &HttpRequest<S>) -> Result<HttpResponse> {
     Ok(HttpResponse::NoContent().into())
+}
+
+fn get_things(request: &HttpRequest<AppState>) -> Result<Json<BTreeMap<String, Device>>> {
+    let state = request.state();
+
+    Ok(Json(state.devices.read().unwrap().clone()))
+}
+
+fn get_thing(request: &HttpRequest<AppState>) -> Result<Json<Device>> {
+    let thing_name = Path::<String>::extract(request)?;
+    let state = request.state();
+
+    Ok(Json(
+        state
+            .devices
+            .read()
+            .unwrap()
+            .get(&thing_name.into_inner())
+            .unwrap()
+            .clone(),
+    ))
 }
 
 struct Ws;
@@ -49,10 +76,24 @@ impl StreamHandler<ws::Message, ws::ProtocolError> for Ws {
     }
 }
 
+struct AppState {
+    devices: RwLock<BTreeMap<String, Device>>,
+}
+
+impl Default for AppState {
+    fn default() -> Self {
+        AppState {
+            devices: RwLock::new(BTreeMap::new()),
+        }
+    }
+}
+
 fn main() {
     ::std::env::set_var("RUST_LOG", "actix_web=info");
     ::std::env::set_var("RUST_BACKTRACE", "1");
     env_logger::init();
+
+    thread::spawn(|| plugin::manage_plugins());
 
     let user_db = Arc::new(RwLock::new(BTreeMap::default()));
 
@@ -60,12 +101,17 @@ fn main() {
 
     server::new(move || {
         let user_db_clone = user_db.clone();
-        App::new()
+        App::with_state(AppState::default())
             .middleware(middleware::Logger::default())
-            .resource("/logs", |r| r.f(|req| ws::start(req, Ws)))
+            .resource("/logs", |r| r.f(|req| ws::start(&req.drop_state(), Ws)))
             .resource("/ping", |r| r.f(ping))
             .resource("/users/count", |r| {
                 r.h(UserCountHandler(UserService::with_db(user_db_clone)))
+            })
+            .scope("/things", |things_api_scope| {
+                things_api_scope
+                    .resource("/", |r| r.method(Method::GET).f(get_things))
+                    .resource("/{thing_name}", |r| r.method(Method::GET).f(get_thing))
             })
             .handler(
                 "/",
