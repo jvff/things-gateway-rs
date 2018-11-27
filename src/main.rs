@@ -1,12 +1,12 @@
-
 mod users;
+
 use std::collections::BTreeMap;
 use std::sync::{Arc, RwLock};
 
-use actix_web::{dev, fs, middleware, server, App, ws, HttpRequest, HttpResponse, Result};
+use actix_web::{dev, fs, middleware, server, ws, App, HttpRequest, HttpResponse, Result};
 
-use actix::*;
 use crate::users::UserService;
+use actix::*;
 
 struct UserCountHandler(UserService);
 
@@ -17,19 +17,15 @@ impl<S> dev::Handler<S> for UserCountHandler {
     fn handle(&self, req: &HttpRequest<S>) -> Self::Result {
         let count = self.0.user_count();
 
-
         HttpResponse::Ok()
-        .content_type("application/json")
-        .json(count)
+            .content_type("application/json")
+            .json(count)
     }
 }
 
 fn ping(req: &HttpRequest) -> Result<HttpResponse> {
     Ok(HttpResponse::NoContent().into())
 }
-
-
-
 
 struct Ws;
 
@@ -39,7 +35,6 @@ impl Actor for Ws {
 
 /// Handler for ws::Message message
 impl StreamHandler<ws::Message, ws::ProtocolError> for Ws {
-
     fn handle(&mut self, msg: ws::Message, ctx: &mut Self::Context) {
         match msg {
             ws::Message::Ping(msg) => ctx.pong(&msg),
@@ -49,8 +44,6 @@ impl StreamHandler<ws::Message, ws::ProtocolError> for Ws {
         }
     }
 }
-
-
 
 fn main() {
     ::std::env::set_var("RUST_LOG", "actix_web=info");
@@ -67,14 +60,19 @@ fn main() {
             .middleware(middleware::Logger::default())
             .resource("/logs", |r| r.f(|req| ws::start(req, Ws)))
             .resource("/ping", |r| r.f(ping))
-            .resource("/users/count", |r| r.h(UserCountHandler(UserService::with_db(user_db_clone))))
-	        .handler(
+            .resource("/users/count", |r| {
+                r.h(UserCountHandler(UserService::with_db(user_db_clone)))
+            })
+            .handler(
                 "/",
-                fs::StaticFiles::new("./build/static/").unwrap().index_file("index.html")
+                fs::StaticFiles::new("./build/static/")
+                    .unwrap()
+                    .index_file("index.html"),
             )
-    }).bind("127.0.0.1:8000")
-        .expect("Can not start server on given IP/Port")
-        .start();
+    })
+    .bind("127.0.0.1:8000")
+    .expect("Can not start server on given IP/Port")
+    .start();
 
     println!("Started http server: 127.0.0.1:8000");
     let _ = sys.run();
