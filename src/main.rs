@@ -1,6 +1,9 @@
 #[macro_use]
+extern crate failure;
+#[macro_use]
 extern crate serde_derive;
 
+mod controllers;
 mod plugin;
 mod users;
 
@@ -123,6 +126,9 @@ fn main() {
         let user_db_clone = user_db.clone();
         App::with_state(AppState::default())
             .middleware(middleware::Logger::default())
+            .resource("/login", |r| {
+                r.method(Method::POST).f(controllers::login::login)
+            })
             .resource("/logs", |r| r.f(|req| ws::start(&req.drop_state(), Ws)))
             .resource("/ping", |r| r.f(ping))
             .resource("/users/count", |r| {
