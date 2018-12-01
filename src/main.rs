@@ -5,7 +5,6 @@ extern crate serde_derive;
 
 mod controllers;
 mod plugin;
-mod users;
 
 use std::collections::{BTreeMap, HashMap};
 use std::sync::{Arc, RwLock};
@@ -16,25 +15,9 @@ use actix_web::{
     Json, Path, Result,
 };
 
-use crate::users::UserService;
 use actix::*;
 
 use self::plugin::{Device, Property};
-
-struct UserCountHandler(UserService);
-
-impl<S> dev::Handler<S> for UserCountHandler {
-    type Result = HttpResponse;
-
-    /// Handle request
-    fn handle(&self, req: &HttpRequest<S>) -> Self::Result {
-        let count = self.0.user_count();
-
-        HttpResponse::Ok()
-            .content_type("application/json")
-            .json(count)
-    }
-}
 
 fn ping<S>(req: &HttpRequest<S>) -> Result<HttpResponse> {
     Ok(HttpResponse::NoContent().into())
@@ -118,12 +101,9 @@ fn main() {
 
     thread::spawn(|| plugin::manage_plugins());
 
-    let user_db = Arc::new(RwLock::new(BTreeMap::default()));
-
     let sys = actix::System::new("static_index");
 
     server::new(move || {
-        let user_db_clone = user_db.clone();
         App::with_state(AppState::default())
             .middleware(middleware::Logger::default())
             .resource("/login", |r| {
@@ -132,7 +112,7 @@ fn main() {
             .resource("/logs", |r| r.f(|req| ws::start(&req.drop_state(), Ws)))
             .resource("/ping", |r| r.f(ping))
             .resource("/users/count", |r| {
-                r.h(UserCountHandler(UserService::with_db(user_db_clone)))
+                r.method(Method::GET).f(controllers::users::count)
             })
             .scope("/things", |things_api_scope| {
                 things_api_scope
