@@ -16,7 +16,7 @@ use actix_web::{
 use crate::users::UserService;
 use actix::*;
 
-use self::plugin::Device;
+use self::plugin::{Device, Property};
 
 struct UserCountHandler(UserService);
 
@@ -56,6 +56,26 @@ fn get_thing(request: &HttpRequest<AppState>) -> Result<Json<Device>> {
             .unwrap()
             .clone(),
     ))
+}
+
+fn get_properties(request: &HttpRequest<AppState>) -> Result<Json<Vec<Property>>> {
+    let thing_name = Path::<String>::extract(request)?;
+    let state = request.state();
+    let devices = state.devices.read().unwrap();
+    let device = devices.get(&thing_name.into_inner()).unwrap();
+    let properties = device.properties.values().cloned().collect();
+
+    Ok(Json(properties))
+}
+
+fn get_property(request: &HttpRequest<AppState>) -> Result<Json<Property>> {
+    let (thing_name, property_id) = Path::<(String, String)>::extract(request)?.into_inner();
+    let state = request.state();
+    let devices = state.devices.read().unwrap();
+    let device = devices.get(&thing_name).unwrap();
+    let property = device.properties.get(&property_id).unwrap().clone();
+
+    Ok(Json(property))
 }
 
 struct Ws;
@@ -112,6 +132,11 @@ fn main() {
                 things_api_scope
                     .resource("/", |r| r.method(Method::GET).f(get_things))
                     .resource("/{thing_name}", |r| r.method(Method::GET).f(get_thing))
+                    .nested("/{thing_name}/properties", |properties_scope| {
+                        properties_scope
+                            .resource("", |r| r.method(Method::GET).f(get_properties))
+                            .resource("/{property_id}", |r| r.method(Method::GET).f(get_property))
+                    })
             })
             .handler(
                 "/",
