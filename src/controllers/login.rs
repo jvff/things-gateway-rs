@@ -4,15 +4,12 @@ use actix_web::{
 };
 use futures::Future;
 
+use super::super::models::WebToken;
+
 #[derive(Deserialize)]
 struct LoginRequest {
     email: String,
     password: String,
-}
-
-#[derive(Serialize)]
-pub struct WebToken {
-    jwt: String,
 }
 
 #[derive(Debug, Fail)]
@@ -38,9 +35,7 @@ pub fn login<S: 'static>(
         } else if body.password != "password" {
             Err(LoginError::InvalidPassword.into())
         } else {
-            Ok(Json(WebToken {
-                jwt: "testtoken".to_owned(),
-            }))
+            Ok(Json(WebToken::issue()))
         }
     }))
 }
