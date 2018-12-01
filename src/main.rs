@@ -4,6 +4,7 @@ extern crate failure;
 extern crate serde_derive;
 
 mod controllers;
+mod models;
 mod plugin;
 
 use std::collections::{BTreeMap, HashMap};
@@ -17,6 +18,7 @@ use actix_web::{
 
 use actix::*;
 
+use self::models::Users;
 use self::plugin::{Device, Property};
 
 fn ping<S>(req: &HttpRequest<S>) -> Result<HttpResponse> {
@@ -82,14 +84,16 @@ impl StreamHandler<ws::Message, ws::ProtocolError> for Ws {
     }
 }
 
-struct AppState {
+pub struct AppState {
     devices: RwLock<BTreeMap<String, Device>>,
+    users: RwLock<Users>,
 }
 
 impl Default for AppState {
     fn default() -> Self {
         AppState {
             devices: RwLock::new(BTreeMap::new()),
+            users: RwLock::new(Users::default()),
         }
     }
 }

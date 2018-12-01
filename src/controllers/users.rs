@@ -1,5 +1,9 @@
 use actix_web::{HttpRequest, Json};
 
-pub fn count<S>(request: &HttpRequest<S>) -> Json<usize> {
-    Json(0)
+use super::super::AppState;
+
+pub fn count(request: &HttpRequest<AppState>) -> Json<usize> {
+    let users = request.state().users.read().unwrap();
+
+    Json(users.count())
 }
