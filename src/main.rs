@@ -115,8 +115,14 @@ fn main() {
             })
             .resource("/logs", |r| r.f(|req| ws::start(&req.drop_state(), Ws)))
             .resource("/ping", |r| r.f(ping))
-            .resource("/users/count", |r| {
-                r.method(Method::GET).f(controllers::users::count)
+            .scope("/users", |users_scope| {
+                users_scope
+                    .resource("/", |r| {
+                        r.method(Method::POST).f(controllers::users::create)
+                    })
+                    .resource("/count", |r| {
+                        r.method(Method::GET).f(controllers::users::count)
+                    })
             })
             .scope("/things", |things_api_scope| {
                 things_api_scope
